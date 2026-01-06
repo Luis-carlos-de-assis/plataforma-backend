@@ -1,0 +1,10 @@
+
+ #!/bin/bash
+
+# Aplica as migrações do Alembic para criar/atualizar as tabelas no banco de dados.
+# Isso garante que nosso "depósito" tenha as prateleiras corretas.
+alembic upgrade head
+
+# Inicia o servidor da API.
+# Ele vai escutar em todas as interfaces de rede (0.0.0.0) na porta que o Render fornecer.
+uvicorn main:app --host 0.0.0.0 --port $PORT
