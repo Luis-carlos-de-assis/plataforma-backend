@@ -6,24 +6,24 @@ from sqlalchemy.orm import sessionmaker, Session, relationship
 from pydantic import BaseModel
 from typing import List, Optional
 
-# --- ConfiguraÁ„o do Banco de Dados ---
-# Pega o endereÁo do banco de dados da "etiqueta" de ambiente.
+# --- Configura√ß√£o do Banco de Dados ---
+# Pega o endere√ßo do banco de dados da "etiqueta" de ambiente.
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Se a etiqueta n„o existir, usa um banco de dados local sqlite para emergÍncias.
+# Se a etiqueta n√£o existir, usa um banco de dados local sqlite para emerg√™ncias.
 if DATABASE_URL is None:
     DATABASE_URL = "sqlite:///./fallback.db"
 
 # Cria o "motor" que conecta ao banco de dados.
 engine = create_engine(DATABASE_URL)
 
-# Cria uma "f·brica de sessıes" para conversar com o banco de dados.
+# Cria uma "f√°brica de sess√µes" para conversar com o banco de dados.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # A base para todos os nossos modelos de tabela.
 Base = declarative_base()
 
-# --- Modelos de Tabela (A Planta do nosso DepÛsito) ---
+# --- Modelos de Tabela (A Planta do nosso Dep√≥sito) ---
 
 class Conta(Base):
     __tablename__ = "contas"
@@ -50,7 +50,7 @@ class ItemConhecimento(Base):
     agente_id = Column(Integer, ForeignKey("agentes.id"))
     agente = relationship("Agente", back_populates="itens_conhecimento")
 
-# --- Schemas Pydantic (Os "Formul·rios" da nossa API) ---
+# --- Schemas Pydantic (Os "Formul√°rios" da nossa API) ---
 
 class ItemConhecimentoCreate(BaseModel):
     categoria: str
@@ -63,21 +63,21 @@ class ItemConhecimentoSchema(ItemConhecimentoCreate):
     class Config:
         orm_mode = True
 
-# --- FunÁıes de DependÍncia ---
+# --- Fun√ß√µes de Depend√™ncia ---
 
 def get_db():
-    """FunÁ„o para fornecer uma sess„o de banco de dados para cada requisiÁ„o."""
+    """Fun√ß√£o para fornecer uma sess√£o de banco de dados para cada requisi√ß√£o."""
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-# --- CriaÁ„o da AplicaÁ„o FastAPI ---
+# --- Cria√ß√£o da Aplica√ß√£o FastAPI ---
 
 app = FastAPI(
     title="Plataforma de Agentes Manus",
-    description="API para gerenciar agentes de IA genÈricos e suas bases de conhecimento.",
+    description="API para gerenciar agentes de IA gen√©ricos e suas bases de conhecimento.",
     version="1.0.0"
 )
 
@@ -85,20 +85,20 @@ app = FastAPI(
 
 @app.get("/", tags=["Status"])
 def read_root():
-    """Verifica se a API est· no ar."""
-    return {"status": "Plataforma de Agentes Manus est· no ar!"}
+    """Verifica se a API est√° no ar."""
+    return {"status": "Plataforma de Agentes Manus est√° no ar!"}
 
 @app.post("/itens-conhecimento/", response_model=ItemConhecimentoSchema, tags=["Conhecimento"])
 def create_item_conhecimento(item: ItemConhecimentoCreate, db: Session = Depends(get_db)):
     """
     Cria um novo item de conhecimento para um agente.
-    Este È um endpoint genÈrico para adicionar qualquer tipo de dado
+    Este √© um endpoint gen√©rico para adicionar qualquer tipo de dado
     (sabores, planos, FAQs, etc.) a um agente.
     """
     # Verifica se o agente existe (simplificado)
     agente = db.query(Agente).filter(Agente.id == item.agente_id).first()
     if not agente:
-        raise HTTPException(status_code=404, detail="Agente n„o encontrado")
+        raise HTTPException(status_code=404, detail="Agente n√£o encontrado")
 
     db_item = ItemConhecimento(
         categoria=item.categoria,
@@ -114,7 +114,7 @@ def create_item_conhecimento(item: ItemConhecimentoCreate, db: Session = Depends
 @app.get("/agentes/{agente_id}/conhecimento/", response_model=List[ItemConhecimentoSchema], tags=["Conhecimento"])
 def get_itens_por_categoria(agente_id: int, categoria: str, db: Session = Depends(get_db)):
     """
-    Busca todos os itens de conhecimento de um agente para uma categoria especÌfica.
+    Busca todos os itens de conhecimento de um agente para uma categoria espec√≠fica.
     Ex: /agentes/1/conhecimento/?categoria=Sabores
     """
     itens = db.query(ItemConhecimento).filter(
