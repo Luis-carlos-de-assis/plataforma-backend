@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -138,6 +139,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# --- INÍCIO DA CONFIGURAÇÃO DO CORS ---
+
+# Lista de endereços que podem falar com nossa API
+origins = [
+    "http://localhost:3000",  # Para desenvolvimento local no futuro
+    "https://plataforma-frontend-sooty.vercel.app", # O endereço do seu frontend
+    # Adicione o endereço exato do seu Vercel aqui se for diferente
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins, # Permite as origens da lista
+    allow_credentials=True,
+    allow_methods=["*"], # Permite todos os métodos (GET, POST, etc. )
+    allow_headers=["*"], # Permite todos os cabeçalhos
+)
+# --- FIM DA CONFIGURAÇÃO DO CORS ---
+
 
 # --- Endpoints da API ---
 
@@ -216,3 +235,4 @@ def create_item_conhecimento(item: ItemConhecimentoCreate, db: Session = Depends
     db.commit()
     db.refresh(db_item)
     return db_item
+
