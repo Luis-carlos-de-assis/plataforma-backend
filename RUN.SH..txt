@@ -1,10 +1,7 @@
+#!/bin/bash
 
- #!/bin/bash
+# Comando corrigido: Executa o alembic como um mÃ³dulo do Python
+python -m alembic upgrade head
 
-# Aplica as migrações do Alembic para criar/atualizar as tabelas no banco de dados.
-# Isso garante que nosso "depósito" tenha as prateleiras corretas.
-alembic upgrade head
-
-# Inicia o servidor da API.
-# Ele vai escutar em todas as interfaces de rede (0.0.0.0) na porta que o Render fornecer.
-uvicorn main:app --host 0.0.0.0 --port $PORT
+# Comando corrigido: Executa o uvicorn como um mÃ³dulo do Python
+python -m uvicorn main:app --host 0.0.0.0 --port $PORT
