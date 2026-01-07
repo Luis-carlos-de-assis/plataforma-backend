@@ -1,7 +1,19 @@
 #!/bin/bash
 
-# Comando corrigido: Executa o alembic como um módulo do Python
-python -m alembic upgrade head
+# --- Comandos de Diagnóstico ---
+# Este comando vai nos mostrar onde o Python está instalado e listar
+# os pacotes que foram instalados pelo requirements.txt.
+# Isso nos ajuda a confirmar se alembic e uvicorn estão realmente lá.
+echo "--- Verificando instalação dos pacotes ---"
+ls -l ./.venv/bin/
+echo "-----------------------------------------"
 
-# Comando corrigido: Executa o uvicorn como um módulo do Python
-python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+# --- Comandos de Execução (Versão 2.0) ---
+# Agora, vamos usar o caminho completo para o executável do Python
+# que o Render cria, para ter certeza absoluta.
+
+# Executa o Alembic usando o caminho explícito
+./.venv/bin/python -m alembic upgrade head
+
+# Executa o Uvicorn usando o caminho explícito
+./.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port $PORT
