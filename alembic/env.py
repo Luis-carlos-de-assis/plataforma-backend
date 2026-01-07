@@ -13,7 +13,7 @@ from main import Base
 # access to the values within the .ini file in use.
 config = context.config
 
-# Interpreta o arquivo de configuraÁ„o para o logging do Python.
+# Interpreta o arquivo de configura√ß√£o para o logging do Python.
 # Esta linha basicamente configura os loggers.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -22,7 +22,7 @@ if config.config_file_name is not None:
 # para que o AutoGenerate possa detectar as tabelas.
 target_metadata = Base.metadata
 
-# outras configuraÁıes podem ser definidas aqui,
+# outras configura√ß√µes podem ser definidas aqui,
 # como o nome do schema, etc.
 # target_metadata = {"schema": "my_schema"}
 
@@ -58,10 +58,10 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    # Usa a vari·vel de ambiente DATABASE_URL que configuramos no Render
+    # Usa a vari√°vel de ambiente DATABASE_URL que configuramos no Render
     db_url = os.getenv("DATABASE_URL")
     if db_url is None:
-        raise Exception("DATABASE_URL n„o est· configurada.")
+        raise Exception("DATABASE_URL n√£o est√° configurada.")
 
     connectable_config = config.get_section(config.config_ini_section)
     connectable_config['sqlalchemy.url'] = db_url
