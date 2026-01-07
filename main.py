@@ -1,36 +1,47 @@
 import os
-from fastapi import FastAPI, Depends, HTTPException, status
-from sqlalchemy import create_engine, Column, Integer, String, JSON, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session, relationship
-from pydantic import BaseModel
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-# --- Configuração do Banco de Dados ---
-# Pega o endereço do banco de dados da "etiqueta" de ambiente.
-DATABASE_URL = os.getenv("DATABASE_URL")
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from pydantic import BaseModel
+from sqlalchemy import (JSON, Column, ForeignKey, Integer, String,
+                        create_engine)
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session, relationship, sessionmaker
 
-# Se a etiqueta não existir, usa um banco de dados local sqlite para emergências.
-if DATABASE_URL is None:
+# --- Configurações de Segurança ---
+# Chave secreta para "assinar" os tokens. Em um projeto real, isso viria de uma variável de ambiente.
+SECRET_KEY = "uma-chave-secreta-muito-forte-e-dificil-de-adivinhar"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Contexto para hashing de senhas
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Esquema do OAuth2 para a documentação da API
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
+# --- Configuração do Banco de Dados ---
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
     DATABASE_URL = "sqlite:///./fallback.db"
 
-# Cria o "motor" que conecta ao banco de dados.
 engine = create_engine(DATABASE_URL)
-
-# Cria uma "fábrica de sessões" para conversar com o banco de dados.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# A base para todos os nossos modelos de tabela.
 Base = declarative_base()
 
-# --- Modelos de Tabela (A Planta do nosso Depósito) ---
+
+# --- Modelos de Tabela (Banco de Dados) ---
 
 class Conta(Base):
     __tablename__ = "contas"
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    # Em um projeto real, a senha seria um hash seguro.
-    senha_simplificada = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=False)
     agentes = relationship("Agente", back_populates="conta")
 
 class Agente(Base):
@@ -50,7 +61,128 @@ class ItemConhecimento(Base):
     agente_id = Column(Integer, ForeignKey("agentes.id"))
     agente = relationship("Agente", back_populates="itens_conhecimento")
 
-# --- Schemas Pydantic (Os "Formulários" da nossa API) ---
+
+# --- Schemas Pydantic (Formulários da API) ---
+
+class ContaCreate(BaseModel):
+    email: str
+    password: str
+
+class ContaSchema(BaseModel):
+    id: int
+    email: str
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
+
+
+# --- Funções de Segurança e Dependências ---
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def get_conta(db: Session, email: str):
+    return db.query(Conta).filter(Conta.email == email).first()
+
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+        token_data = TokenData(email=email)
+    except JWTError:
+        raise credentials_exception
+    user = get_conta(db, email=token_data.email)
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+# --- Criação da Aplicação FastAPI ---
+
+app = FastAPI(
+    title="Plataforma de Agentes Manus",
+    description="API para gerenciar agentes de IA genéricos e suas bases de conhecimento.",
+    version="1.0.0"
+)
+
+
+# --- Endpoints da API ---
+
+@app.post("/token", response_model=Token, tags=["Autenticação"])
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """
+    Endpoint de Login. Recebe email (no campo username) e senha.
+    Retorna um token de acesso.
+    """
+    user = get_conta(db, email=form_data.username)
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/contas/", response_model=ContaSchema, tags=["Contas"])
+def create_conta(conta: ContaCreate, db: Session = Depends(get_db)):
+    """
+    Cria uma nova conta de usuário (registro).
+    """
+    db_conta = get_conta(db, email=conta.email)
+    if db_conta:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    hashed_password = get_password_hash(conta.password)
+    db_user = Conta(email=conta.email, hashed_password=hashed_password)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@app.get("/contas/me/", response_model=ContaSchema, tags=["Contas"])
+async def read_users_me(current_user: Conta = Depends(get_current_user)):
+    """
+    Retorna as informações do usuário atualmente logado.
+    """
+    return current_user
+
+# --- Endpoints antigos (adaptados para exemplo) ---
 
 class ItemConhecimentoCreate(BaseModel):
     categoria: str
@@ -61,45 +193,19 @@ class ItemConhecimentoCreate(BaseModel):
 class ItemConhecimentoSchema(ItemConhecimentoCreate):
     id: int
     class Config:
-        orm_mode = True
-
-# --- Funções de Dependência ---
-
-def get_db():
-    """Função para fornecer uma sessão de banco de dados para cada requisição."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-# --- Criação da Aplicação FastAPI ---
-
-app = FastAPI(
-    title="Plataforma de Agentes Manus",
-    description="API para gerenciar agentes de IA genéricos e suas bases de conhecimento.",
-    version="1.0.0"
-)
-
-# --- Endpoints da API ---
+        from_attributes = True
 
 @app.get("/", tags=["Status"])
 def read_root():
-    """Verifica se a API está no ar."""
     return {"status": "Plataforma de Agentes Manus está no ar!"}
 
-@app.post("/itens-conhecimento/", response_model=ItemConhecimentoSchema, tags=["Conhecimento"])
+@app.post("/itens-conhecimento/", response_model=ItemConhecimentoSchema, tags=["Conhecimento"], dependencies=[Depends(get_current_user)])
 def create_item_conhecimento(item: ItemConhecimentoCreate, db: Session = Depends(get_db)):
-    """
-    Cria um novo item de conhecimento para um agente.
-    Este é um endpoint genérico para adicionar qualquer tipo de dado
-    (sabores, planos, FAQs, etc.) a um agente.
-    """
-    # Verifica se o agente existe (simplificado)
+    # Este endpoint agora está protegido. Só usuários logados podem usá-lo.
     agente = db.query(Agente).filter(Agente.id == item.agente_id).first()
     if not agente:
         raise HTTPException(status_code=404, detail="Agente não encontrado")
-
+    
     db_item = ItemConhecimento(
         categoria=item.categoria,
         nome=item.nome,
@@ -110,18 +216,3 @@ def create_item_conhecimento(item: ItemConhecimentoCreate, db: Session = Depends
     db.commit()
     db.refresh(db_item)
     return db_item
-
-@app.get("/agentes/{agente_id}/conhecimento/", response_model=List[ItemConhecimentoSchema], tags=["Conhecimento"])
-def get_itens_por_categoria(agente_id: int, categoria: str, db: Session = Depends(get_db)):
-    """
-    Busca todos os itens de conhecimento de um agente para uma categoria específica.
-    Ex: /agentes/1/conhecimento/?categoria=Sabores
-    """
-    itens = db.query(ItemConhecimento).filter(
-        ItemConhecimento.agente_id == agente_id,
-        ItemConhecimento.categoria == categoria
-    ).all()
-    return itens
-
-# --- Outros endpoints (contas, agentes, etc.) seriam adicionados aqui ---
-
