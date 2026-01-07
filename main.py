@@ -136,7 +136,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
 app = FastAPI(
     title="Plataforma de Agentes Manus",
     description="API para gerenciar agentes de IA genéricos e suas bases de conhecimento.",
-    version="1.0.0"
+    version="1.0.0",
     debug=True,
     reload=True
 )
@@ -237,5 +237,6 @@ def create_item_conhecimento(item: ItemConhecimentoCreate, db: Session = Depends
     db.commit()
     db.refresh(db_item)
     return db_item
+
 
 
