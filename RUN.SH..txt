@@ -1,19 +1,15 @@
 #!/bin/bash
 
-# --- Comandos de Diagnóstico ---
-# Este comando vai nos mostrar onde o Python está instalado e listar
-# os pacotes que foram instalados pelo requirements.txt.
-# Isso nos ajuda a confirmar se alembic e uvicorn estão realmente lá.
-echo "--- Verificando instalação dos pacotes ---"
-ls -l ./.venv/bin/
-echo "-----------------------------------------"
+# --- Passo 1: Instalar as dependências ---
+# Em vez de fazer isso no "Build Command", fazemos aqui para garantir
+# que tudo aconteça no mesmo ambiente.
+echo "--- Instalando dependências ---"
+pip install -r requirements.txt
 
-# --- Comandos de Execução (Versão 2.0) ---
-# Agora, vamos usar o caminho completo para o executável do Python
-# que o Render cria, para ter certeza absoluta.
+# --- Passo 2: Aplicar as migrações do banco de dados ---
+echo "--- Aplicando migrações do banco de dados ---"
+python -m alembic upgrade head
 
-# Executa o Alembic usando o caminho explícito
-./.venv/bin/python -m alembic upgrade head
-
-# Executa o Uvicorn usando o caminho explícito
-./.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+# --- Passo 3: Iniciar o servidor da API ---
+echo "--- Iniciando o servidor ---"
+python -m uvicorn main:app --host 0.0.0.0 --port $PORT
