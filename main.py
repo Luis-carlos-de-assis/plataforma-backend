@@ -42,7 +42,7 @@ class Agente(Base):
     nome = Column(String, index=True, nullable=False)
     conta_id = Column(Integer, ForeignKey("contas.id"))
     conta = relationship("Conta", back_populates="agentes")
-    itens_conhecimento = relationship("ItemConhecimento", back_pop_ulates="agente")
+    itens_conhecimento = relationship("ItemConhecimento", back_populates="agente")
 
 class ItemConhecimento(Base):
     __tablename__ = "itens_conhecimento"
@@ -183,5 +183,6 @@ async def read_users_me(current_user: Conta = Depends(get_current_user)):
 @app.get("/", tags=["Status"])
 def read_root():
     return {"status": "Plataforma de Agentes Manus está no ar!"}
+
 
 
