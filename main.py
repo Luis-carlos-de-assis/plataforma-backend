@@ -20,7 +20,9 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # Contexto para hashing de senhas
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Configuração do Passlib, usando argon2 como padrão
+pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
+
 
 # Esquema do OAuth2 para a documentação da API
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -237,6 +239,7 @@ def create_item_conhecimento(item: ItemConhecimentoCreate, db: Session = Depends
     db.commit()
     db.refresh(db_item)
     return db_item
+
 
 
 
