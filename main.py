@@ -159,13 +159,32 @@ app.add_middleware(
     allow_methods=["*"], # Permite todos os métodos (GET, POST, etc. )
     allow_headers=["*"], # Permite todos os cabeçalhos
 )
-# --- FIM DA CONFIGURAÇÃO DO CORS ---
-
-
-# --- Endpoints da API ---
+ Novo Pydantic model para receber o login via JSON
+class LoginRequest(BaseModel):
+    email: str
+    password: str
 
 @app.post("/token", response_model=Token, tags=["Autenticação"])
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login_for_access_token(
+    login_data: LoginRequest,
+    db: Session = Depends(get_db)
+):
+    
+    user = authenticate_user(db, email=login_data.email, password=login_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email ou senha incorretos",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# --- FIM DA MODIFICAÇÃO ---
+
     """
     Endpoint de Login. Recebe email (no campo username) e senha.
     Retorna um token de acesso.
@@ -239,6 +258,7 @@ def create_item_conhecimento(item: ItemConhecimentoCreate, db: Session = Depends
     db.commit()
     db.refresh(db_item)
     return db_item
+
 
 
 
