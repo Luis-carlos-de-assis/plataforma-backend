@@ -34,14 +34,14 @@ class Conta(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    agentes = relationship("Agente", back_pop_ulates="conta")
+    agentes = relationship("Agente", back_populates="conta")
 
 class Agente(Base):
     __tablename__ = "agentes"
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, index=True, nullable=False)
     conta_id = Column(Integer, ForeignKey("contas.id"))
-    conta = relationship("Conta", back_pop_ulates="agentes")
+    conta = relationship("Conta", back_populates="agentes")
     itens_conhecimento = relationship("ItemConhecimento", back_pop_ulates="agente")
 
 class ItemConhecimento(Base):
@@ -51,7 +51,7 @@ class ItemConhecimento(Base):
     nome = Column(String, index=True)
     dados_json = Column(JSON, nullable=False)
     agente_id = Column(Integer, ForeignKey("agentes.id"))
-    agente = relationship("Agente", back_pop_ulates="itens_conhecimento")
+    agente = relationship("Agente", back_populates="itens_conhecimento")
 
 class ContaCreate(BaseModel):
     email: str
@@ -183,4 +183,5 @@ async def read_users_me(current_user: Conta = Depends(get_current_user)):
 @app.get("/", tags=["Status"])
 def read_root():
     return {"status": "Plataforma de Agentes Manus está no ar!"}
+
 
