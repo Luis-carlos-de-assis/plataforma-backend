@@ -1,4 +1,4 @@
- import os
+import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
@@ -183,3 +183,4 @@ async def read_users_me(current_user: Conta = Depends(get_current_user)):
 @app.get("/", tags=["Status"])
 def read_root():
     return {"status": "Plataforma de Agentes Manus está no ar!"}
+
