@@ -185,4 +185,30 @@ def read_root():
     return {"status": "Plataforma de Agentes Manus está no ar!"}
 
 
+@app.delete("/itens-conhecimento/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def deletar_item_conhecimento(item_id: int, db: Session = Depends(get_db), usuario_id: int = Depends(get_current_user)):
+    # Primeiro, busca o item no banco de dados
+    item_query = db.query(models.ItemConhecimento).filter(models.ItemConhecimento.id == item_id)
+    item = item_query.first()
+
+    # Verifica se o item existe
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Item com id {item_id} não encontrado")
+
+    # Verifica se o item pertence à conta do usuário logado
+    # (Importante para segurança em um ambiente multi-usuário)
+    conhecimento_pai = db.query(models.Conhecimento).filter(models.Conhecimento.id == item.conhecimento_id).first()
+    if conhecimento_pai.conta_id != usuario_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Não tem permissão para deletar este item")
+
+    # Se tudo estiver certo, deleta o item e salva a mudança
+    item_query.delete(synchronize_session=False)
+    db.commit()
+
+    # Retorna uma resposta vazia, indicando sucesso
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 
