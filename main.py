@@ -1,3 +1,48 @@
+from pydantic import BaseModel
+from typing import Optional
+
+# --- Adicione esta classe de modelo perto do topo do arquivo, junto com as outras classes Pydantic ---
+# Se você já tem uma classe ItemConhecimentoBase ou similar, pode adicionar os campos opcionais a ela.
+# Para garantir, vamos criar uma específica para atualização.
+class ItemConhecimentoUpdate(BaseModel):
+    nome: Optional[str] = None
+    conteudo: Optional[str] = None
+    tipo: Optional[str] = None
+    # O conhecimento_id (categoria) não costuma ser alterado, mas podemos adicionar se necessário.
+
+# --- Adicione este endpoint ao FINAL do arquivo ---
+@app.put("/itens-conhecimento/{item_id}", response_model=schemas.ItemConhecimento)
+def atualizar_item_conhecimento(item_id: int, item_atualizado: ItemConhecimentoUpdate, db: Session = Depends(get_db), usuario_id: int = Depends(get_current_user)):
+    # Busca o item existente
+    item_query = db.query(models.ItemConhecimento).filter(models.ItemConhecimento.id == item_id)
+    item_db = item_query.first()
+
+    # Verifica se o item existe
+    if not item_db:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Item com id {item_id} não encontrado")
+
+    # Verifica a permissão do usuário
+    conhecimento_pai = db.query(models.Conhecimento).filter(models.Conhecimento.id == item_db.conhecimento_id).first()
+    if conhecimento_pai.conta_id != usuario_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Não tem permissão para atualizar este item")
+
+    # Converte os dados recebidos para um dicionário, excluindo os que não foram enviados
+    update_data = item_atualizado.dict(exclude_unset=True)
+    
+    # Se não houver dados para atualizar, apenas retorna o item como está
+    if not update_data:
+        return item_db
+
+    # Atualiza o item no banco de dados com os novos dados
+    item_query.update(update_data, synchronize_session=False)
+    db.commit()
+    
+    # Recarrega o item do banco para retornar os dados atualizados
+    db.refresh(item_db)
+    
+    return item_db
 import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
